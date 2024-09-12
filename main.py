@@ -41,6 +41,7 @@ def main():
 
     parser.add_argument("--eval_zero_shot", action="store_true")
     args = parser.parse_args()
+    print(args)
 
     # Setting seeds for reproducibility
     np.random.seed(args.seed)
@@ -56,7 +57,7 @@ def main():
     print(f"loading llm model {args.model}")
     model = get_llm(args.model, args.cache_dir)
     model.eval()
-    tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained('gpt2') #args.model, use_fast=False)
 
     device = torch.device("cuda:0")
     if "30b" in args.model or "65b" in args.model: # for 30b and 65b we use device_map to load onto multiple A6000 GPUs, thus the processing here.
@@ -102,6 +103,7 @@ def main():
         print("zero_shot evaluation results")
         print(results)
 
+    print(args.save_model)
     if args.save_model:
         model.save_pretrained(args.save_model)
         tokenizer.save_pretrained(args.save_model)

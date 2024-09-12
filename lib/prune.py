@@ -33,24 +33,26 @@ def check_sparsity(model):
     use_cache = model.config.use_cache 
     model.config.use_cache = False 
 
-    layers = model.model.layers
+    #layers = model.model.layers
     count = 0 
     total_params = 0
-    for i in range(len(layers)):
-        layer = layers[i]
-        subset = find_layers(layer)
+    #for i in range(len(layers)):
+    #    layer = layers[i]
+    #    subset = find_layers(layer)
 
-        sub_count = 0
-        sub_params = 0
-        for name in subset:
-            W = subset[name].weight.data
-            count += (W==0).sum().item()
-            total_params += W.numel()
+        #sub_count = 0
+        #sub_params = 0
+    for n, p in model.named_parameters(): #for name in subset:
+        if 'weight' not in n:
+            continue
+        W = p.data
+        count += (W==0).sum().item()
+        total_params += W.numel()
 
-            sub_count += (W==0).sum().item()
-            sub_params += W.numel()
+        sub_count = (W==0).sum().item()
+        sub_params = W.numel()
 
-        print(f"layer {i} sparsity {float(sub_count)/sub_params:.6f}")
+        print(f"layer {n} sparsity {float(sub_count)/sub_params:.6f}")
 
     model.config.use_cache = use_cache 
     return float(count)/total_params 
@@ -103,26 +105,33 @@ def return_given_alpha(alpha, sort_res, W_metric, tmp_metric, sum_before):
     return W_mask, cur_sparsity
 
 def prune_magnitude(args, model, tokenizer, device=torch.device("cuda:0"), prune_n=0, prune_m=0):
-    layers = model.model.layers 
+    #layers = model.model.layers 
+    #print(layers)
 
-    for i in range(len(layers)):
-        layer = layers[i]
-        subset = find_layers(layer)
+    #for i in range(len(layers)):
+        #layer = layers[i]
+        #print(layer)
+        #subset = find_layers(layer)
+        #print(subset)
 
-        for name in subset:
-            W = subset[name].weight.data 
-            W_metric = torch.abs(W)
-            if prune_n != 0:
-                W_mask = (torch.zeros_like(W)==1)
-                for ii in range(W_metric.shape[1]):
-                    if ii % prune_m == 0:
-                        tmp = W_metric[:,ii:(ii+prune_m)].float()
-                        W_mask.scatter_(1,ii+torch.topk(tmp, prune_n,dim=1, largest=False)[1], True)
-            else:
-                thresh = torch.sort(W_metric.flatten().cuda())[0][int(W.numel()*args.sparsity_ratio)].cpu()
-                W_mask = (W_metric<=thresh)
+    for n, p in model.named_parameters():
+        
+        #for name in subset:
+        if 'weight' not in n:
+            continue
+        W = p.data #subset[name].weight.data 
+        W_metric = torch.abs(W)
+        if prune_n != 0:
+            W_mask = (torch.zeros_like(W)==1)
+            for ii in range(W_metric.shape[1]):
+                if ii % prune_m == 0:
+                    tmp = W_metric[:,ii:(ii+prune_m)].float()
+                    W_mask.scatter_(1,ii+torch.topk(tmp, prune_n,dim=1, largest=False)[1], True)
+        else:
+            thresh = torch.sort(W_metric.flatten().cuda())[0][int(W.numel()*args.sparsity_ratio)].cpu()
+            W_mask = (W_metric<=thresh)
 
-            W[W_mask] = 0
+        W[W_mask] = 0
 
 def prune_wanda(args, model, tokenizer, device=torch.device("cuda:0"), prune_n=0, prune_m=0):
     use_cache = model.config.use_cache 
