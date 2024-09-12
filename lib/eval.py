@@ -2,6 +2,12 @@
 import time
 import torch
 import torch.nn as nn
+import transformers
+import datasets
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+import os
+import json
 
 # Import get_loaders function from data module within the same directory
 from .data import get_loaders 
@@ -128,6 +134,81 @@ def eval_ppl_wikitext(model, testenc, bs=1, device=None):
 
     return ppl.item()
 
+def collate_fn(batch):
+    input_ids = [item["input_ids"] for item in batch]
+    attention_masks = [item["attention_mask"] for item in batch]
+    labels = [item["input_ids"] for item in batch]
+
+    # Convert lists to tensors
+    input_ids = torch.tensor(input_ids)  # .to(torch.device("cuda"))
+    attention_masks = torch.tensor(
+        attention_masks)  # .to(torch.device("cuda"))
+    labels = torch.tensor(labels)  # .to(torch.device("cuda"))
+
+    # Pad sequences to the same length
+    input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True)
+    attention_masks = torch.nn.utils.rnn.pad_sequence(
+        attention_masks, batch_first=True)
+    labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True)
+
+    return {
+        "input_ids": input_ids,
+        "attention_mask": attention_masks,
+        "labels": labels,
+    }
+
+
+def preprocess_text(tokenizer, file: str, max_length=512):
+    dataset = datasets.load_dataset("text", data_files=file)
+
+    # print out the stat before tokenizing
+    print(dataset)
+
+    def tokenize_function(example):
+        return tokenizer(example['text'], truncation=True, max_length=max_length, padding="max_length")
+    tokenized_dataset = dataset.map(tokenize_function, batched=True)
+    # tokenized_dataset = tokenized_dataset.rename_columns("text")
+
+    # print out the stat after tokenizing
+    print(tokenized_dataset)
+
+    dataset = tokenized_dataset["train"]
+    return dataset
+
+
+def eval_mimic_ppl(dataset_name, model_name, model, tokenizer, batch_size_eval=1):
+
+    tokenizer.pad_token = tokenizer.eos_token
+    if dataset_name == 'mimic':
+        eval_path = 'datasets/d_eval.txt'
+
+    elif dataset_name == 'enron':
+        eval_path = 'datasets/enron_eval.txt'
+
+    eval_dataset = preprocess_text(tokenizer, eval_path)
+
+    eval_dataloader = DataLoader(
+        eval_dataset,
+        batch_size=batch_size_eval,
+        shuffle=False, collate_fn=collate_fn)
+
+    model.eval()
+    eval_loss = 0
+    eval_preds = []
+    for step, batch in enumerate(tqdm(eval_dataloader)):
+        # batch = {k: v.to(device) for k, v in batch.items()}
+        batch = {k: v.cuda() for k, v in batch.items()}
+        with torch.no_grad():
+            outputs = model(**batch)
+        loss = outputs[0] #.loss
+        eval_loss += loss.detach().float()
+
+    eval_epoch_loss = eval_loss / len(eval_dataloader)
+    eval_ppl = torch.exp(eval_epoch_loss)
+    print(f"mimic evaluation ppl: {eval_ppl=}")
+
+    with open(f"{model_name}/callbacks.json", "w") as c:
+        json.dump(["eval ppl:{eval_ppl}"], c)
 
 def eval_zero_shot(model_name, model, tokenizer, task_list=["boolq","rte","hellaswag","winogrande","arc_challenge","arc_easy","openbookqa"], 
         num_fewshot=0, use_accelerate=False, add_special_tokens=False):
