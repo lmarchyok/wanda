@@ -205,7 +205,7 @@ def eval_custom_ppl(dataset_name, model_name, model, tokenizer, batch_size_eval=
 
     eval_epoch_loss = eval_loss / len(eval_dataloader)
     eval_ppl = torch.exp(eval_epoch_loss)
-    print(f"mimic evaluation ppl: {eval_ppl=}")
+    print(f"{dataset_name} evaluation ppl: {eval_ppl=}")
 
     with open(f"{model_name}/callbacks.json", "w") as c:
         json.dump(["eval ppl:{eval_ppl}"], c)
