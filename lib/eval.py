@@ -176,7 +176,7 @@ def preprocess_text(tokenizer, file: str, max_length=512):
     return dataset
 
 
-def eval_mimic_ppl(dataset_name, model_name, model, tokenizer, batch_size_eval=1):
+def eval_custom_ppl(dataset_name, model_name, model, tokenizer, batch_size_eval=1):
 
     tokenizer.pad_token = tokenizer.eos_token
     if dataset_name == 'mimic':
