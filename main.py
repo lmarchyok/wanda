@@ -6,7 +6,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from importlib.metadata import version
 
 from lib.prune import prune_wanda, prune_magnitude, prune_sparsegpt, prune_ablate, check_sparsity, find_layers
-from lib.eval import eval_ppl, eval_zero_shot, eval_mimic_ppl
+from lib.eval import eval_ppl, eval_zero_shot, eval_custom_ppl
 
 print('torch', version('torch'))
 print('transformers', version('transformers'))
@@ -39,6 +39,7 @@ def main():
     parser.add_argument('--save', type=str, default=None, help='Path to save results.')
     parser.add_argument('--save_model', type=str, default=None, help='Path to save the pruned model.')
     parser.add_argument('--dataset_name', type=str, default=None, help='Name of dataset to evaluate on')
+    parser.add_argument('--base_model', type=str, default=None, help='Name of base gpt2 model')
 
     parser.add_argument("--eval_zero_shot", action="store_true")
     args = parser.parse_args()
@@ -58,9 +59,9 @@ def main():
     print(f"loading llm model {args.model}")
     model = get_llm(args.model, args.cache_dir)
     model.eval()
-    tokenizer = AutoTokenizer.from_pretrained('gpt2') #args.model, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(args.base_model) #args.model, use_fast=False)
 
-    device = torch.device("cuda:0")
+    device = torch.device("cuda")
     if "30b" in args.model or "65b" in args.model: # for 30b and 65b we use device_map to load onto multiple A6000 GPUs, thus the processing here.
         device = model.hf_device_map["lm_head"]
     print("use device ", device)
@@ -84,7 +85,7 @@ def main():
     ################################################################
     #ppl_test = eval_ppl(args, model, tokenizer, device)
     #print(f"wikitext perplexity {ppl_test}")
-    eval_mimic_ppl(args.dataset_name, args.save_model, model, tokenizer, )    
+    eval_custom_ppl(args.dataset_name, args.save_model, model, tokenizer, )    
 
     if not os.path.exists(args.save):
         os.makedirs(args.save)
