@@ -193,6 +193,7 @@ def eval_custom_ppl(dataset_name, model_name, model, tokenizer, batch_size_eval=
         shuffle=False, collate_fn=collate_fn)
 
     model.eval()
+    model.cuda()
     eval_loss = 0
     eval_preds = []
     for step, batch in enumerate(tqdm(eval_dataloader)):
