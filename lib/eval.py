@@ -209,7 +209,7 @@ def eval_custom_ppl(dataset_name, model_name, model, tokenizer, batch_size_eval=
     print(f"{dataset_name} evaluation ppl: {eval_ppl=}")
 
     with open(f"{model_name}/callbacks.json", "w") as c:
-        json.dump([f"eval ppl:{eval_ppl}"], c)
+        json.dump([f"eval ppl: {eval_ppl}"], c)
 
 def eval_zero_shot(model_name, model, tokenizer, task_list=["boolq","rte","hellaswag","winogrande","arc_challenge","arc_easy","openbookqa"], 
         num_fewshot=0, use_accelerate=False, add_special_tokens=False):
